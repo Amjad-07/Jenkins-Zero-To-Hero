@@ -29,12 +29,27 @@ pipeline {
         }
       }
     }
-    stage('Build and Push Docker Image') {
-      environment {
-        DOCKER_IMAGE = "abhishekf5/ultimate-cicd:${BUILD_NUMBER}"
-        // DOCKERFILE_LOCATION = "java-maven-sonar-argocd-helm-k8s/spring-boot-app/Dockerfile"
-        REGISTRY_CREDENTIALS = credentials('docker-cred')
-      }
+  stage('Build and Push Docker Image to Artifact Registry') {
+    environment {
+      PROJECT_ID = "neat-pagoda-477804-m8"
+      REGION = "asia-east1"
+      REPO = "cicd-repo"
+      IMAGE_NAME = "springboot-app"
+      IMAGE_TAG = "${BUILD_NUMBER}"
+      DOCKER_IMAGE = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
+    }
+    steps {
+      sh '''
+        cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
+  
+        gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
+  
+        docker build -t ${DOCKER_IMAGE} .
+  
+        docker push ${DOCKER_IMAGE}
+      '''
+    }
+  }
       steps {
         script {
             sh 'cd java-maven-sonar-argocd-helm-k8s/spring-boot-app && docker build -t ${DOCKER_IMAGE} .'
@@ -48,13 +63,13 @@ pipeline {
     stage('Update Deployment File') {
         environment {
             GIT_REPO_NAME = "Jenkins-Zero-To-Hero"
-            GIT_USER_NAME = "iam-veeramalla"
+            GIT_USER_NAME = "Amjad-07"
         }
         steps {
             withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
                 sh '''
-                    git config user.email "abhishek.xyz@gmail.com"
-                    git config user.name "Abhishek Veeramalla"
+                    git config user.email "mohamedamjad295@gmail.com"
+                    git config user.name "Amjad-07"
                     BUILD_NUMBER=${BUILD_NUMBER}
                     sed -i "s/replaceImageTag/${BUILD_NUMBER}/g" java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
                     git add java-maven-sonar-argocd-helm-k8s/spring-boot-app-manifests/deployment.yml
