@@ -16,6 +16,6 @@ spec:
     spec:
       containers:
       - name: spring-boot-app
-        image: asia-south1-docker.pkg.dev/neat-pagoda-477804-m8/cicd-repo/springboot-app:replaceImageTag
+        image: asia-south1-docker.pkg.dev/neat-pagoda-477804-m8/cicd-repo/springboot-app:11
         ports:
         - containerPort: 8080
