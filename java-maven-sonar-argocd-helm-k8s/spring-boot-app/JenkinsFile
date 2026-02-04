@@ -1,9 +1,13 @@
 pipeline {
-  agent {
-    docker {
-      image 'amji423/jenkins-maven-docker-agent:v3'
-      args '--user root -v /var/run/docker.sock:/var/run/docker.sock'
-    }
+
+  agent any
+
+  environment {
+    PROJECT_ID = "neat-pagoda-477804-m8"
+    REGION = "asia-east1"
+    REPO = "cicd-repo"
+    IMAGE_NAME = "springboot-app"
+    DOCKER_IMAGE = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${BUILD_NUMBER}"
   }
 
   stages {
@@ -31,37 +35,28 @@ pipeline {
         withCredentials([string(credentialsId: 'sonarqube', variable: 'SONAR_AUTH_TOKEN')]) {
           sh '''
             cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-            mvn sonar:sonar -Dsonar.login=$SONAR_AUTH_TOKEN -Dsonar.host.url=${SONAR_URL}
+            mvn sonar:sonar \
+              -Dsonar.login=$SONAR_AUTH_TOKEN \
+              -Dsonar.host.url=${SONAR_URL}
           '''
         }
       }
     }
 
     stage('Build and Push Docker Image to Artifact Registry') {
-      environment {
-        PROJECT_ID = "neat-pagoda-477804-m8"
-        REGION = "asia-east1"
-        REPO = "cicd-repo"
-        IMAGE_NAME = "springboot-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_IMAGE = "${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/${IMAGE_NAME}:${IMAGE_TAG}"
-      }
       steps {
         sh '''
           cd java-maven-sonar-argocd-helm-k8s/spring-boot-app
-    
-          # Authenticate docker using VM service account token
-          ACCESS_TOKEN=$(curl -s -H "Metadata-Flavor: Google" \
-            http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token \
-            | grep -o '"access_token":"[^"]*' | cut -d'"' -f4)
-    
-          echo $ACCESS_TOKEN | docker login -u oauth2accesstoken --password-stdin https://${REGION}-docker.pkg.dev
-    
+
+          # Authenticate Docker with Artifact Registry using VM Workload Identity
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev -q
+
           docker build -t ${DOCKER_IMAGE} .
           docker push ${DOCKER_IMAGE}
         '''
       }
     }
+
     stage('Update Deployment File') {
       steps {
         withCredentials([string(credentialsId: 'github', variable: 'GITHUB_TOKEN')]) {
